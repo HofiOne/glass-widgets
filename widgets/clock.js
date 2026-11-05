@@ -24,7 +24,10 @@ class GlassClockWidget extends St.BoxLayout {
         this._settingsChangedIds.push(this._settings.connect(`changed::${CLOCK_KEYS.fontWeight}`, () => this._applyStyle()));
         this._settingsChangedIds.push(this._settings.connect(`changed::${CLOCK_KEYS.hourMinuteSizeRatio}`, () => this._updateTime()));
         this._settingsChangedIds.push(this._settings.connect(`changed::${CLOCK_KEYS.color}`, () => this._applyStyle()));
+        this._settingsChangedIds.push(this._settings.connect(`changed::${WIDGET_KEYS.clockWeather}`, () => this._syncWeather(locationHelper)));
         this._weather = null;
+        this._weatherBox = null;
+        this._weatherId = null;
 
         this._leftBox = new St.BoxLayout({
             vertical: true,
@@ -45,12 +48,20 @@ class GlassClockWidget extends St.BoxLayout {
         });
         this._leftBox.add_child(this._dateLabel);
 
-        if (settings && settings.get_boolean(WIDGET_KEYS.clockWeather))
-            this._buildWeather(locationHelper);
+        this._syncWeather(locationHelper);
 
         this._timeout = null;
         this._updateTime();
         this._startTimer();
+    }
+
+    _syncWeather(locationHelper) {
+        if (this._settings.get_boolean(WIDGET_KEYS.clockWeather)) {
+            if (!this._weather)
+                this._buildWeather(locationHelper);
+        } else {
+            this._destroyWeather();
+        }
     }
 
     _buildWeather(locationHelper) {
@@ -91,6 +102,22 @@ class GlassClockWidget extends St.BoxLayout {
         this._weather = new GlassWeather(this._settings, locationHelper);
         this._weatherId = this._weather.connect(WIDGET_SIGNALS.weatherUpdated,
             () => this._updateWeather());
+    }
+
+    _destroyWeather() {
+        if (!this._weather)
+            return;
+
+        this._weather.disconnect(this._weatherId);
+        this._weather.destroy();
+        this._weather = null;
+        this._weatherId = null;
+        this._weatherBox.destroy();
+        this._weatherBox = null;
+        this._weatherRow = null;
+        this._weatherIcon = null;
+        this._weatherTemp = null;
+        this._weatherLoc = null;
     }
 
     _updateWeather() {
@@ -165,11 +192,7 @@ class GlassClockWidget extends St.BoxLayout {
         for (const id of this._settingsChangedIds)
             this._settings.disconnect(id);
         this._settingsChangedIds = [];
-        if (this._weather) {
-            this._weather.disconnect(this._weatherId);
-            this._weather.destroy();
-            this._weather = null;
-        }
+        this._destroyWeather();
         super.destroy();
     }
 });

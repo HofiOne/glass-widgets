@@ -13,12 +13,15 @@ import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
-import {CLOCK_KEYS, CLOCK_STYLE, COLOR_FORMAT, EFFECT_KEYS, LEGACY_POSITION_KEYS, LOCATION_NAME_PROVIDER, OPACITY_CONFIG, REFLECTION_STYLE, SPONSOR_LAYOUT, TEMPERATURE_UNIT, WEATHER_KEYS, WIDGET_KEYS, WORLD_CLOCK_KEYS} from './widgets/settings.js';
+
+import {POSITION_KEYS, migratePositionSettings} from './widgets/position.js';
+import {CLOCK_KEYS, CLOCK_STYLE, COLOR_FORMAT, EFFECT_KEYS, LOCATION_NAME_PROVIDER, OPACITY_CONFIG, POSITION_CONFIG, REFLECTION_STYLE, SPONSOR_LAYOUT, TEMPERATURE_UNIT, WEATHER_KEYS, WIDGET_KEYS, WORLD_CLOCK_KEYS} from './widgets/settings.js';
 import Gio from 'gi://Gio';
 
 export default class GlassWidgetsPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
+        migratePositionSettings(settings);
 
         // General page
         const generalPage = new Adw.PreferencesPage({
@@ -301,25 +304,41 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
             const xRow = new Adw.SpinRow({
                 title: _('Horizontal position (%)'),
                 subtitle: _('0 = left edge, 100 = right edge'),
-                adjustment: new Gtk.Adjustment({lower: 0, upper: 100, step_increment: 1, page_increment: 10, value: settings.get_int(xKey)}),
+                digits: POSITION_CONFIG.decimalPlaces,
+                snap_to_ticks: false,
+                adjustment: new Gtk.Adjustment({
+                    lower: POSITION_CONFIG.minimumPercent,
+                    upper: POSITION_CONFIG.maximumPercent,
+                    step_increment: POSITION_CONFIG.stepPercent,
+                    page_increment: POSITION_CONFIG.pageStepPercent,
+                    value: settings.get_double(xKey),
+                }),
             });
             settings.bind(xKey, xRow, 'value', Gio.SettingsBindFlags.DEFAULT);
             group.add(xRow);
             const yRow = new Adw.SpinRow({
                 title: _('Vertical position (%)'),
                 subtitle: _('0 = top edge, 100 = bottom edge'),
-                adjustment: new Gtk.Adjustment({lower: 0, upper: 100, step_increment: 1, page_increment: 10, value: settings.get_int(yKey)}),
+                digits: POSITION_CONFIG.decimalPlaces,
+                snap_to_ticks: false,
+                adjustment: new Gtk.Adjustment({
+                    lower: POSITION_CONFIG.minimumPercent,
+                    upper: POSITION_CONFIG.maximumPercent,
+                    step_increment: POSITION_CONFIG.stepPercent,
+                    page_increment: POSITION_CONFIG.pageStepPercent,
+                    value: settings.get_double(yKey),
+                }),
             });
             settings.bind(yKey, yRow, 'value', Gio.SettingsBindFlags.DEFAULT);
             group.add(yRow);
         };
 
-        addPositionRows(_('Clock position'), LEGACY_POSITION_KEYS.clock.x, LEGACY_POSITION_KEYS.clock.y);
-        addPositionRows(_('Stats position'), LEGACY_POSITION_KEYS.stats.x, LEGACY_POSITION_KEYS.stats.y);
-        addPositionRows(_('Calendar position'), LEGACY_POSITION_KEYS.calendar.x, LEGACY_POSITION_KEYS.calendar.y);
-        addPositionRows(_('World clock position'), LEGACY_POSITION_KEYS.worldclock.x, LEGACY_POSITION_KEYS.worldclock.y);
-        addPositionRows(_('Hourly forecast position'), LEGACY_POSITION_KEYS.hourly.x, LEGACY_POSITION_KEYS.hourly.y);
-        addPositionRows(_('Weekly forecast position'), LEGACY_POSITION_KEYS.weekly.x, LEGACY_POSITION_KEYS.weekly.y);
+        addPositionRows(_('Clock position'), ...POSITION_KEYS.clock);
+        addPositionRows(_('Stats position'), ...POSITION_KEYS.stats);
+        addPositionRows(_('Calendar position'), ...POSITION_KEYS.calendar);
+        addPositionRows(_('World clock position'), ...POSITION_KEYS.worldclock);
+        addPositionRows(_('Hourly forecast position'), ...POSITION_KEYS.hourly);
+        addPositionRows(_('Weekly forecast position'), ...POSITION_KEYS.weekly);
         // Media player position is intentionally not exposed in the stable build.
         // The widget will ship later after the app sandboxing issues are resolved.
         // addPositionRows(_('Media player position'), 'media-x', 'media-y');
