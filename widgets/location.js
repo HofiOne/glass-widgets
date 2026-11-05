@@ -14,13 +14,12 @@ const AUTO_LOCATION_KEY = WEATHER_KEYS.autoLocation;
 const NAME_PROVIDER_KEY = WEATHER_KEYS.nameProvider;
 const LAT_KEY = WEATHER_KEYS.latitude;
 const LON_KEY = WEATHER_KEYS.longitude;
-
 const NAME_REQUEST_TIMEOUT_SECONDS = 10;
 const NAME_LOOKUP_DEBOUNCE_MS = 1000;
 const NAME_CACHE_COORDINATE_DECIMALS = 5;
 const NAME_CACHE_LIMIT = 32;
 
-
+export {LOCATION_NAME_PROVIDER} from './settings.js';
 
 const LOCATION_NAME_SERVICES = new Map([
     [LOCATION_NAME_PROVIDER.NOMINATIM, {
@@ -42,7 +41,7 @@ export const GlassLocation = GObject.registerClass({
         [WIDGET_SIGNALS.locationNameChanged]: {},
     },
 }, class GlassLocation extends GObject.Object {
-    _init(settings) {
+    _init(settings, networkMonitor = null) {
         super._init();
 
         this._settings = settings;
@@ -69,6 +68,13 @@ export const GlassLocation = GObject.registerClass({
             `changed::${LAT_KEY}`, () => this._updateLocation()));
         this._settingsChangedIds.push(settings.connect(
             `changed::${LON_KEY}`, () => this._updateLocation()));
+
+        this._networkMonitor = networkMonitor ?? Gio.NetworkMonitor.get_default();
+        this._networkChangedId = this._networkMonitor.connect(
+            'network-changed', (_monitor, available) => {
+                if (available && this._locationName === null)
+                    this._resolveLocationName();
+            });
 
         this._updateLocation();
     }
@@ -244,6 +250,8 @@ export const GlassLocation = GObject.registerClass({
     }
 
     destroy() {
+        this._networkMonitor.disconnect(this._networkChangedId);
+        this._networkMonitor = null;
         this._cancelNameLookup();
         this._session.abort();
         this._session = null;
@@ -257,5 +265,3 @@ export const GlassLocation = GObject.registerClass({
         this._locationName = null;
     }
 });
-
-export {LOCATION_NAME_PROVIDER} from './settings.js';

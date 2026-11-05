@@ -6,6 +6,7 @@ import St from 'gi://St';
 import GLib from 'gi://GLib';
 
 import {GlassWeather} from './weather.js';
+import {createWeatherPlaceholder} from './weather-placeholder.js';
 import {applyDynamicStyle} from './style.js';
 import {CLOCK_KEYS, CLOCK_REFRESH_INTERVAL_SECONDS, CLOCK_STYLE, WIDGET_KEYS, WIDGET_SIGNALS} from './settings.js';
 
@@ -72,6 +73,9 @@ class GlassClockWidget extends St.BoxLayout {
         });
         this.add_child(this._weatherBox);
 
+        this._weatherPlaceholder = createWeatherPlaceholder();
+        this._weatherBox.add_child(this._weatherPlaceholder);
+
         this._weatherRow = new St.BoxLayout({
             style_class: 'glass-weather-row',
             x_align: Clutter.ActorAlign.CENTER,
@@ -97,11 +101,10 @@ class GlassClockWidget extends St.BoxLayout {
         });
         this._weatherBox.add_child(this._weatherLoc);
 
-        this._weatherBox.hide();
-
         this._weather = new GlassWeather(this._settings, locationHelper);
         this._weatherId = this._weather.connect(WIDGET_SIGNALS.weatherUpdated,
             () => this._updateWeather());
+        this._updateWeather();
     }
 
     _destroyWeather() {
@@ -114,6 +117,7 @@ class GlassClockWidget extends St.BoxLayout {
         this._weatherId = null;
         this._weatherBox.destroy();
         this._weatherBox = null;
+        this._weatherPlaceholder = null;
         this._weatherRow = null;
         this._weatherIcon = null;
         this._weatherTemp = null;
@@ -124,16 +128,19 @@ class GlassClockWidget extends St.BoxLayout {
         if (!this._weatherBox)
             return;
 
-        if (this._weather.hasWeather) {
+        const hasWeather = this._weather.hasWeather;
+        this._weatherPlaceholder.visible = !hasWeather;
+        this._weatherRow.visible = hasWeather;
+        this._weatherLoc.visible = hasWeather;
+
+        if (hasWeather) {
             this._weatherIcon.icon_name = this._weather.iconName;
             this._weatherTemp.text = this._weather.temperature;
             this._weatherLoc.text = this._weather.locationName
                 ? this._weather.locationName
                 : '';
-            this._weatherBox.show();
-        } else {
-            this._weatherBox.hide();
         }
+        this._weatherBox.show();
     }
 
     _updateTime() {

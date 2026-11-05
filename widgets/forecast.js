@@ -1,20 +1,20 @@
-import {FORECAST_CONFIG} from './forecast-config.js';
 'use strict';
 
 import GObject from 'gi://GObject';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup';
+
+import {FORECAST_CONFIG} from './forecast-config.js';
 import {FAHRENHEIT_CONVERSION, TEMPERATURE_UNIT, WEATHER_CONFIG, WEATHER_KEYS, WIDGET_SIGNALS} from './settings.js';
 
 const TEMP_UNIT_KEY = WEATHER_KEYS.temperatureUnit;
 const UPDATE_INTERVAL_SECONDS = WEATHER_CONFIG.updateIntervalMinutes * GLib.TIME_SPAN_MINUTE / GLib.TIME_SPAN_SECOND;
 
-const FORECAST_DAYS = FORECAST_CONFIG.dailyDays;
-
 export const GlassForecast = GObject.registerClass({
     Signals: {[WIDGET_SIGNALS.forecastUpdated]: {}},
 }, class GlassForecast extends GObject.Object {
-    _init(settings, locationHelper) {
+    _init(settings, locationHelper, networkMonitor = null) {
         super._init();
 
         this._settings = settings;
@@ -34,6 +34,13 @@ export const GlassForecast = GObject.registerClass({
             () => {
                 this._fetch(true);
                 return GLib.SOURCE_CONTINUE;
+            });
+
+        this._networkMonitor = networkMonitor ?? Gio.NetworkMonitor.get_default();
+        this._networkChangedId = this._networkMonitor.connect(
+            'network-changed', (_monitor, available) => {
+                if (available)
+                    this._fetch(true);
             });
 
         if (locationHelper.location)
@@ -86,7 +93,7 @@ export const GlassForecast = GObject.registerClass({
         if (!coordinates)
             return;
 
-            const now = GLib.get_monotonic_time();
+        const now = GLib.get_monotonic_time();
         if (!force && now - this._lastFetch < UPDATE_INTERVAL_SECONDS * GLib.TIME_SPAN_SECOND)
             return;
 
@@ -97,7 +104,7 @@ export const GlassForecast = GObject.registerClass({
             ['longitude', coordinates.longitude.toFixed(4)],
             ['hourly', 'temperature_2m,weather_code'],
             ['daily', 'weather_code,temperature_2m_max,temperature_2m_min'],
-            ['forecast_days', String(FORECAST_DAYS)],
+            ['forecast_days', String(FORECAST_CONFIG.dailyDays)],
             ['timezone', 'auto'],
         ].map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
         const message = Soup.Message.new(
@@ -105,15 +112,17 @@ export const GlassForecast = GObject.registerClass({
 
         this._session.send_and_read_async(
             message, GLib.PRIORITY_DEFAULT, null, (session, result) => {
-                if (serial !== this._requestSerial)
-                    return;
                 try {
-                    if (message.get_status() < 200 || message.get_status() >= 300)
-                        throw new Error(`HTTP ${message.get_status()}`);
                     const bytes = session.send_and_read_finish(result);
+                    if (serial !== this._requestSerial)
+                        return;
+                    if (message.get_status() < Soup.Status.OK || message.get_status() >= Soup.Status.MULTIPLE_CHOICES)
+                        throw new Error(`HTTP ${message.get_status()}`);
                     const payload = JSON.parse(new TextDecoder().decode(bytes.get_data()));
                     this._setData(payload);
                 } catch (error) {
+                    if (serial !== this._requestSerial)
+                        return;
                     console.error(`glass-widgets: forecast request failed: ${error}`);
                     this._hourly = [];
                     this._daily = [];
@@ -168,6 +177,8 @@ export const GlassForecast = GObject.registerClass({
             GLib.Source.remove(this._timerId);
             this._timerId = null;
         }
+        this._networkMonitor.disconnect(this._networkChangedId);
+        this._networkMonitor = null;
         this._locationHelper.disconnect(this._locationChangedId);
         this._settings.disconnect(this._temperatureChangedId);
         this._session = null;

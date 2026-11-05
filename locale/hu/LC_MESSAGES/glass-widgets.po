@@ -12,6 +12,10 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#: widgets/weather-placeholder.js:19
+msgid "Refreshing..."
+msgstr "Frissítés..."
+
 #: prefs.js:15
 msgid "General"
 msgstr "Általános"
