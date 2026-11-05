@@ -11,12 +11,12 @@ function appendEnumChoices(model, choices) {
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
+import Gio from 'gi://Gio';
 
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {POSITION_KEYS, migratePositionSettings} from './widgets/position.js';
 import {CLOCK_KEYS, CLOCK_STYLE, COLOR_FORMAT, EFFECT_KEYS, LOCATION_NAME_PROVIDER, OPACITY_CONFIG, POSITION_CONFIG, REFLECTION_STYLE, SPONSOR_LAYOUT, TEMPERATURE_UNIT, WEATHER_KEYS, WIDGET_KEYS, WORLD_CLOCK_KEYS} from './widgets/settings.js';
-import Gio from 'gi://Gio';
 
 export default class GlassWidgetsPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -120,6 +120,17 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         };
         worldClockEntriesRow.connect('notify::text', refreshWorldClockEntries);
         widgetsGroup.add(worldClockEntriesRow);
+
+        for (const {key, title} of [
+            {key: WORLD_CLOCK_KEYS.showTicks, title: _('World clock hour marks')},
+            {key: WORLD_CLOCK_KEYS.showSeconds, title: _('World clock second hand')},
+            {key: WORLD_CLOCK_KEYS.showNumbers, title: _('World clock dial numbers')},
+            {key: WORLD_CLOCK_KEYS.showRelativeTime, title: _('World clock relative time')},
+        ]) {
+            const row = new Adw.SwitchRow({title});
+            settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+            widgetsGroup.add(row);
+        }
 
         // Clock Style page
         const clockStylePage = new Adw.PreferencesPage({
