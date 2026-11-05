@@ -1,11 +1,3 @@
-function appendEnumChoices(model, choices) {
-    for (const [id, label] of choices) {
-        if (model.get_n_items() !== id)
-            throw new Error('Choice positions must match stored settings identifiers');
-        model.append(label);
-    }
-}
-
 'use strict';
 
 import Adw from 'gi://Adw';
@@ -16,7 +8,15 @@ import Gio from 'gi://Gio';
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {POSITION_KEYS, migratePositionSettings} from './widgets/position.js';
-import {CLOCK_KEYS, CLOCK_STYLE, COLOR_FORMAT, EFFECT_KEYS, LOCATION_NAME_PROVIDER, OPACITY_CONFIG, POSITION_CONFIG, REFLECTION_STYLE, SPONSOR_LAYOUT, TEMPERATURE_UNIT, WEATHER_KEYS, WIDGET_KEYS, WORLD_CLOCK_KEYS} from './widgets/settings.js';
+import {CLOCK_KEYS, CLOCK_STYLE, COLOR_FORMAT, EFFECT_KEYS, LOCATION_NAME_PROVIDER, OPACITY_CONFIG, POSITION_CONFIG, REFLECTION_STYLE, SPONSOR_LAYOUT, TEMPERATURE_UNIT, WEATHER_CONFIG, WEATHER_KEYS, WIDGET_KEYS, WORLD_CLOCK_KEYS} from './widgets/settings.js';
+
+function appendEnumChoices(model, choices) {
+    for (const [id, label] of choices) {
+        if (model.get_n_items() !== id)
+            throw new Error('Choice positions must match stored settings identifiers');
+        model.append(label);
+    }
+}
 
 export default class GlassWidgetsPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -92,6 +92,15 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         // settings.bind('show-media-player', showMediaPlayerRow, 'active', 0);
         // widgetsGroup.add(showMediaPlayerRow);
 
+        const worldClockPage = new Adw.PreferencesPage({
+            title: _('World Clock'),
+            icon_name: 'preferences-clock-symbolic',
+        });
+        window.add(worldClockPage);
+
+        const worldClockGroup = new Adw.PreferencesGroup({title: _('World Clock')});
+        worldClockPage.add(worldClockGroup);
+
         const worldClockEntriesRow = new Adw.EntryRow({
             title: _('World clock timezones'),
             text: settings.get_strv(WORLD_CLOCK_KEYS.entries).map((value) => {
@@ -105,7 +114,7 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         const worldClockHelp = new Adw.ActionRow({
             title: _('Example: UTC, Africa/Nairobi, Europe/London, Asia/Tokyo, America/Sao_Paulo, America/New_York'),
         });
-        widgetsGroup.add(worldClockHelp);
+        worldClockGroup.add(worldClockHelp);
         const refreshWorldClockEntries = () => {
             const text = worldClockEntriesRow.text.trim();
             if (!text) {
@@ -119,7 +128,7 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
             })));
         };
         worldClockEntriesRow.connect('notify::text', refreshWorldClockEntries);
-        widgetsGroup.add(worldClockEntriesRow);
+        worldClockGroup.add(worldClockEntriesRow);
 
         for (const {key, title} of [
             {key: WORLD_CLOCK_KEYS.showTicks, title: _('World clock hour marks')},
@@ -129,7 +138,7 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         ]) {
             const row = new Adw.SwitchRow({title});
             settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
-            widgetsGroup.add(row);
+            worldClockGroup.add(row);
         }
 
         // Clock Style page
@@ -256,12 +265,12 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         const latRow = new Adw.SpinRow({
             title: _('Latitude'),
             subtitle: _('Used when automatic location is unavailable'),
-            digits: 4,
+            digits: WEATHER_CONFIG.coordinateDecimalPlaces,
             adjustment: new Gtk.Adjustment({
-                lower: -90,
-                upper: 90,
-                step_increment: 0.01,
-                page_increment: 1,
+                lower: -WEATHER_CONFIG.latitudeLimit,
+                upper: WEATHER_CONFIG.latitudeLimit,
+                step_increment: WEATHER_CONFIG.coordinateStep,
+                page_increment: WEATHER_CONFIG.coordinatePageStep,
                 value: settings.get_double(WEATHER_KEYS.latitude),
             }),
         });
@@ -271,12 +280,12 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         const lonRow = new Adw.SpinRow({
             title: _('Longitude'),
             subtitle: _('Used when automatic location is unavailable'),
-            digits: 4,
+            digits: WEATHER_CONFIG.coordinateDecimalPlaces,
             adjustment: new Gtk.Adjustment({
-                lower: -180,
-                upper: 180,
-                step_increment: 0.01,
-                page_increment: 1,
+                lower: -WEATHER_CONFIG.longitudeLimit,
+                upper: WEATHER_CONFIG.longitudeLimit,
+                step_increment: WEATHER_CONFIG.coordinateStep,
+                page_increment: WEATHER_CONFIG.coordinatePageStep,
                 value: settings.get_double(WEATHER_KEYS.longitude),
             }),
         });
