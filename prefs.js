@@ -13,7 +13,7 @@ import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
-import {CLOCK_KEYS, CLOCK_STYLE, COLOR_FORMAT, EFFECT_KEYS, LEGACY_POSITION_KEYS, OPACITY_CONFIG, REFLECTION_STYLE, SPONSOR_LAYOUT, TEMPERATURE_UNIT, WEATHER_KEYS, WIDGET_KEYS, WORLD_CLOCK_KEYS} from './widgets/settings.js';
+import {CLOCK_KEYS, CLOCK_STYLE, COLOR_FORMAT, EFFECT_KEYS, LEGACY_POSITION_KEYS, LOCATION_NAME_PROVIDER, OPACITY_CONFIG, REFLECTION_STYLE, SPONSOR_LAYOUT, TEMPERATURE_UNIT, WEATHER_KEYS, WIDGET_KEYS, WORLD_CLOCK_KEYS} from './widgets/settings.js';
 import Gio from 'gi://Gio';
 
 export default class GlassWidgetsPreferences extends ExtensionPreferences {
@@ -211,7 +211,10 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         });
         window.add(weatherPage);
 
-        const locationGroup = new Adw.PreferencesGroup({title: _('Location')});
+        const locationGroup = new Adw.PreferencesGroup({
+            title: _('Location'),
+            description: _('Online name services receive your coordinates. Data: OpenStreetMap contributors (ODbL).'),
+        });
         weatherPage.add(locationGroup);
 
         const autoLocationRow = new Adw.SwitchRow({
@@ -220,6 +223,21 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         });
         settings.bind(WEATHER_KEYS.autoLocation, autoLocationRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         locationGroup.add(autoLocationRow);
+
+        const nameProviderModel = new Gtk.StringList();
+        appendEnumChoices(nameProviderModel, new Map([
+            [LOCATION_NAME_PROVIDER.LOCAL, _('Local - GWeather')],
+            [LOCATION_NAME_PROVIDER.NOMINATIM, _('Nominatim')],
+            [LOCATION_NAME_PROVIDER.PHOTON, _('Photon')],
+        ]));
+
+        const nameProviderRow = new Adw.ComboRow({
+            title: _('Location name provider'),
+            subtitle: _('Coordinate lookup'),
+            model: nameProviderModel,
+        });
+        settings.bind(WEATHER_KEYS.nameProvider, nameProviderRow, 'selected', Gio.SettingsBindFlags.DEFAULT);
+        locationGroup.add(nameProviderRow);
 
         const latRow = new Adw.SpinRow({
             title: _('Latitude'),

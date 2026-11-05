@@ -12,7 +12,6 @@ const TEMP_UNIT_CELSIUS = TEMPERATURE_UNIT.CELSIUS;
 const TEMP_UNIT_FAHRENHEIT = TEMPERATURE_UNIT.FAHRENHEIT;
 const UPDATE_INTERVAL_SECONDS = WEATHER_CONFIG.updateIntervalMinutes * GLib.TIME_SPAN_MINUTE / GLib.TIME_SPAN_SECOND;
 
-
 export const GlassWeather = GObject.registerClass({
     Signals: {[WIDGET_SIGNALS.weatherUpdated]: {}},
 }, class GlassWeather extends GObject.Object {
@@ -42,6 +41,8 @@ export const GlassWeather = GObject.registerClass({
         this._ownsLocationHelper = locationHelper === null;
         this._locationChangedId = this._locationHelper.connect(
             WIDGET_SIGNALS.locationChanged, (_, loc) => this._setLocation(loc));
+        this._locationNameChangedId = this._locationHelper.connect(
+            WIDGET_SIGNALS.locationNameChanged, () => this.emit(WIDGET_SIGNALS.weatherUpdated));
         if (this._locationHelper.location)
             this._setLocation(this._locationHelper.location);
 
@@ -63,7 +64,7 @@ export const GlassWeather = GObject.registerClass({
     get locationName() {
         if (!this._location)
             return null;
-        return this._info.get_location_name();
+        return this._locationHelper.locationName ?? this._info.get_location_name();
     }
 
     _setLocation(location) {
@@ -172,6 +173,7 @@ export const GlassWeather = GObject.registerClass({
         }
         if (this._locationHelper) {
             this._locationHelper.disconnect(this._locationChangedId);
+            this._locationHelper.disconnect(this._locationNameChangedId);
             if (this._ownsLocationHelper)
                 this._locationHelper.destroy();
             this._locationHelper = null;
