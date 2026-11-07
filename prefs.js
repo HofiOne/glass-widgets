@@ -1,3 +1,11 @@
+function appendEnumChoices(model, choices) {
+    for (const [id, label] of choices) {
+        if (model.get_n_items() !== id)
+            throw new Error('Choice positions must match stored settings identifiers');
+        model.append(label);
+    }
+}
+
 'use strict';
 
 import Adw from 'gi://Adw';
@@ -5,6 +13,8 @@ import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {CLOCK_KEYS, CLOCK_STYLE, COLOR_FORMAT, EFFECT_KEYS, LEGACY_POSITION_KEYS, OPACITY_CONFIG, REFLECTION_STYLE, SPONSOR_LAYOUT, TEMPERATURE_UNIT, WEATHER_KEYS, WIDGET_KEYS, WORLD_CLOCK_KEYS} from './widgets/settings.js';
+import Gio from 'gi://Gio';
 
 export default class GlassWidgetsPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -24,49 +34,49 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
             title: _('Clock widget'),
             subtitle: _('Show a frosted glass clock on the desktop'),
         });
-        settings.bind('show-clock', showClockRow, 'active', 0);
+        settings.bind(WIDGET_KEYS.clock, showClockRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         widgetsGroup.add(showClockRow);
 
         const showStatsRow = new Adw.SwitchRow({
             title: _('System stats widget'),
             subtitle: _('Show RAM and CPU usage on the desktop'),
         });
-        settings.bind('show-stats', showStatsRow, 'active', 0);
+        settings.bind(WIDGET_KEYS.stats, showStatsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         widgetsGroup.add(showStatsRow);
 
         const showWeatherRow = new Adw.SwitchRow({
             title: _('Weather in clock widget'),
             subtitle: _('Show current conditions with the clock'),
         });
-        settings.bind('show-weather', showWeatherRow, 'active', 0);
+        settings.bind(WIDGET_KEYS.clockWeather, showWeatherRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         widgetsGroup.add(showWeatherRow);
 
         const showHourlyRow = new Adw.SwitchRow({
             title: _('Hourly weather forecast'),
             subtitle: _('Show the next six hours of weather'),
         });
-        settings.bind('show-hourly-weather', showHourlyRow, 'active', 0);
+        settings.bind(WIDGET_KEYS.hourly, showHourlyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         widgetsGroup.add(showHourlyRow);
 
         const showWeeklyRow = new Adw.SwitchRow({
             title: _('Weekly weather forecast'),
             subtitle: _('Show the seven-day weather forecast'),
         });
-        settings.bind('show-weekly-weather', showWeeklyRow, 'active', 0);
+        settings.bind(WIDGET_KEYS.weekly, showWeeklyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         widgetsGroup.add(showWeeklyRow);
 
         const showCalendarRow = new Adw.SwitchRow({
             title: _('Calendar widget'),
             subtitle: _('Show the current month calendar on the desktop'),
         });
-        settings.bind('show-calendar', showCalendarRow, 'active', 0);
+        settings.bind(WIDGET_KEYS.calendar, showCalendarRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         widgetsGroup.add(showCalendarRow);
 
         const showWorldClockRow = new Adw.SwitchRow({
             title: _('World clock widget'),
             subtitle: _('Show a multi-timezone analog clock on the desktop'),
         });
-        settings.bind('show-world-clock', showWorldClockRow, 'active', 0);
+        settings.bind(WIDGET_KEYS.worldclock, showWorldClockRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         widgetsGroup.add(showWorldClockRow);
 
         // Media player widget is deliberately deferred and kept disabled in the
@@ -81,7 +91,7 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
 
         const worldClockEntriesRow = new Adw.EntryRow({
             title: _('World clock timezones'),
-            text: settings.get_strv('world-clock-entries').map((value) => {
+            text: settings.get_strv(WORLD_CLOCK_KEYS.entries).map((value) => {
                 try {
                     return JSON.parse(value).tz;
                 } catch {
@@ -96,11 +106,11 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         const refreshWorldClockEntries = () => {
             const text = worldClockEntriesRow.text.trim();
             if (!text) {
-                settings.set_strv('world-clock-entries', []);
+                settings.set_strv(WORLD_CLOCK_KEYS.entries, []);
                 return;
             }
             const entries = text.split(',').map((value) => value.trim()).filter(Boolean);
-            settings.set_strv('world-clock-entries', entries.map((tz) => JSON.stringify({
+            settings.set_strv(WORLD_CLOCK_KEYS.entries, entries.map((tz) => JSON.stringify({
                 tz,
                 label: tz.split('/').pop().replace(/_/g, ' '),
             })));
@@ -122,45 +132,45 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
             title: _('Enable clock style override'),
             subtitle: _('Use custom clock styling instead of the stylesheet default'),
         });
-        settings.bind('clock-style-override-enabled', overrideRow, 'active', 0);
+        settings.bind(CLOCK_KEYS.styleOverride, overrideRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         clockStyleGroup.add(overrideRow);
 
         const formatRow = new Adw.SwitchRow({
             title: _('24-hour format'),
             subtitle: _('Use a 24-hour clock instead of 12-hour'),
         });
-        settings.bind('clock-format-24h', formatRow, 'active', 0);
+        settings.bind(CLOCK_KEYS.format24h, formatRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         clockStyleGroup.add(formatRow);
 
         const weightRow = new Adw.SpinRow({
             title: _('Font weight'),
             subtitle: _('100 (thin) to 900 (black)'),
             adjustment: new Gtk.Adjustment({
-                lower: 100,
-                upper: 900,
-                step_increment: 100,
-                page_increment: 200,
-                value: settings.get_int('clock-font-weight'),
+                lower: CLOCK_STYLE.minimumFontWeight,
+                upper: CLOCK_STYLE.maximumFontWeight,
+                step_increment: CLOCK_STYLE.fontWeightStep,
+                page_increment: CLOCK_STYLE.fontWeightPageStep,
+                value: settings.get_int(CLOCK_KEYS.fontWeight),
             }),
         });
-        settings.bind('clock-font-weight', weightRow, 'value', 0);
+        settings.bind(CLOCK_KEYS.fontWeight, weightRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         clockStyleGroup.add(weightRow);
 
-        const ratioValue = Math.max(0.5, Math.min(1.5,
-            settings.get_double('clock-hour-minute-size-ratio')));
+        const ratioValue = Math.max(CLOCK_STYLE.minimumHourRatio, Math.min(CLOCK_STYLE.maximumHourRatio,
+            settings.get_double(CLOCK_KEYS.hourMinuteSizeRatio)));
         const ratioRow = new Adw.SpinRow({
             title: _('Hour/minute size ratio'),
             subtitle: _('0.5 = smaller hours, 1.0 = equal size, 1.5 = bigger hours'),
-            digits: 1,
+            digits: CLOCK_STYLE.ratioDecimalPlaces,
             adjustment: new Gtk.Adjustment({
-                lower: 0.5,
-                upper: 1.5,
-                step_increment: 0.1,
-                page_increment: 0.5,
+                lower: CLOCK_STYLE.minimumHourRatio,
+                upper: CLOCK_STYLE.maximumHourRatio,
+                step_increment: CLOCK_STYLE.ratioStep,
+                page_increment: CLOCK_STYLE.ratioPageStep,
                 value: ratioValue,
             }),
         });
-        settings.bind('clock-hour-minute-size-ratio', ratioRow, 'value', 0);
+        settings.bind(CLOCK_KEYS.hourMinuteSizeRatio, ratioRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         clockStyleGroup.add(ratioRow);
 
         const colorButton = new Gtk.ColorDialogButton({valign: Gtk.Align.CENTER});
@@ -173,22 +183,22 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         // GSettings has no native color type – bind the hex string manually.
         const syncColor = () => {
             const rgba = colorButton.get_rgba();
-            const hex = `#${Math.round(rgba.red * 255).toString(16).padStart(2, '0')}` +
-                `${Math.round(rgba.green * 255).toString(16).padStart(2, '0')}` +
-                `${Math.round(rgba.blue * 255).toString(16).padStart(2, '0')}`;
-            if (settings.get_string('clock-color') !== hex)
-                settings.set_string('clock-color', hex);
+            const hex = '#' + [rgba.red, rgba.green, rgba.blue]
+                .map(channel => Math.round(channel * COLOR_FORMAT.channelMaximum)
+                    .toString(COLOR_FORMAT.hexRadix).padStart(COLOR_FORMAT.hexChannelLength, '0')).join('');
+            if (settings.get_string(CLOCK_KEYS.color) !== hex)
+                settings.set_string(CLOCK_KEYS.color, hex);
         };
         colorButton.connect('notify::rgba', syncColor);
         const initColor = () => {
-            const hex = settings.get_string('clock-color');
-            const r = parseInt(hex.slice(1, 3), 16) / 255;
-            const g = parseInt(hex.slice(3, 5), 16) / 255;
-            const b = parseInt(hex.slice(5, 7), 16) / 255;
-            colorButton.set_rgba(new Gdk.RGBA({red: r, green: g, blue: b, alpha: 1}));
+            const hex = settings.get_string(CLOCK_KEYS.color);
+            const rgba = new Gdk.RGBA();
+            if (!rgba.parse(hex))
+                rgba.parse(CLOCK_STYLE.defaultColor);
+            colorButton.set_rgba(rgba);
         };
         initColor();
-        const colorSettingsId = settings.connect('changed::clock-color', initColor);
+        const colorSettingsId = settings.connect(`changed::${CLOCK_KEYS.color}`, initColor);
         window.connect('close-request', () => {
             settings.disconnect(colorSettingsId);
             return false;
@@ -208,7 +218,7 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
             title: _('Automatic location'),
             subtitle: _('Detect your location automatically. Falls back to the manual coordinates below when unavailable.'),
         });
-        settings.bind('weather-auto-location', autoLocationRow, 'active', 0);
+        settings.bind(WEATHER_KEYS.autoLocation, autoLocationRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         locationGroup.add(autoLocationRow);
 
         const latRow = new Adw.SpinRow({
@@ -220,10 +230,10 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
                 upper: 90,
                 step_increment: 0.01,
                 page_increment: 1,
-                value: settings.get_double('weather-lat'),
+                value: settings.get_double(WEATHER_KEYS.latitude),
             }),
         });
-        settings.bind('weather-lat', latRow, 'value', 0);
+        settings.bind(WEATHER_KEYS.latitude, latRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         locationGroup.add(latRow);
 
         const lonRow = new Adw.SpinRow({
@@ -235,25 +245,27 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
                 upper: 180,
                 step_increment: 0.01,
                 page_increment: 1,
-                value: settings.get_double('weather-lon'),
+                value: settings.get_double(WEATHER_KEYS.longitude),
             }),
         });
-        settings.bind('weather-lon', lonRow, 'value', 0);
+        settings.bind(WEATHER_KEYS.longitude, lonRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         locationGroup.add(lonRow);
 
         const tempGroup = new Adw.PreferencesGroup({title: _('Temperature')});
         weatherPage.add(tempGroup);
 
         const tempUnitModel = new Gtk.StringList();
-        tempUnitModel.append(_('Celsius'));
-        tempUnitModel.append(_('Fahrenheit'));
+        appendEnumChoices(tempUnitModel, new Map([
+            [TEMPERATURE_UNIT.CELSIUS, _('Celsius')],
+            [TEMPERATURE_UNIT.FAHRENHEIT, _('Fahrenheit')],
+        ]));
 
         const tempUnitRow = new Adw.ComboRow({
             title: _('Temperature unit'),
             subtitle: _('Choose how temperatures are displayed'),
             model: tempUnitModel,
         });
-        settings.bind('weather-temperature-unit', tempUnitRow, 'selected', 0);
+        settings.bind(WEATHER_KEYS.temperatureUnit, tempUnitRow, 'selected', Gio.SettingsBindFlags.DEFAULT);
         tempGroup.add(tempUnitRow);
 
         // Position page
@@ -273,23 +285,23 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
                 subtitle: _('0 = left edge, 100 = right edge'),
                 adjustment: new Gtk.Adjustment({lower: 0, upper: 100, step_increment: 1, page_increment: 10, value: settings.get_int(xKey)}),
             });
-            settings.bind(xKey, xRow, 'value', 0);
+            settings.bind(xKey, xRow, 'value', Gio.SettingsBindFlags.DEFAULT);
             group.add(xRow);
             const yRow = new Adw.SpinRow({
                 title: _('Vertical position (%)'),
                 subtitle: _('0 = top edge, 100 = bottom edge'),
                 adjustment: new Gtk.Adjustment({lower: 0, upper: 100, step_increment: 1, page_increment: 10, value: settings.get_int(yKey)}),
             });
-            settings.bind(yKey, yRow, 'value', 0);
+            settings.bind(yKey, yRow, 'value', Gio.SettingsBindFlags.DEFAULT);
             group.add(yRow);
         };
 
-        addPositionRows(_('Clock position'), 'clock-x', 'clock-y');
-        addPositionRows(_('Stats position'), 'stats-x', 'stats-y');
-        addPositionRows(_('Calendar position'), 'calendar-x', 'calendar-y');
-        addPositionRows(_('World clock position'), 'world-clock-x', 'world-clock-y');
-        addPositionRows(_('Hourly forecast position'), 'hourly-x', 'hourly-y');
-        addPositionRows(_('Weekly forecast position'), 'weekly-x', 'weekly-y');
+        addPositionRows(_('Clock position'), LEGACY_POSITION_KEYS.clock.x, LEGACY_POSITION_KEYS.clock.y);
+        addPositionRows(_('Stats position'), LEGACY_POSITION_KEYS.stats.x, LEGACY_POSITION_KEYS.stats.y);
+        addPositionRows(_('Calendar position'), LEGACY_POSITION_KEYS.calendar.x, LEGACY_POSITION_KEYS.calendar.y);
+        addPositionRows(_('World clock position'), LEGACY_POSITION_KEYS.worldclock.x, LEGACY_POSITION_KEYS.worldclock.y);
+        addPositionRows(_('Hourly forecast position'), LEGACY_POSITION_KEYS.hourly.x, LEGACY_POSITION_KEYS.hourly.y);
+        addPositionRows(_('Weekly forecast position'), LEGACY_POSITION_KEYS.weekly.x, LEGACY_POSITION_KEYS.weekly.y);
         // Media player position is intentionally not exposed in the stable build.
         // The widget will ship later after the app sandboxing issues are resolved.
         // addPositionRows(_('Media player position'), 'media-x', 'media-y');
@@ -297,16 +309,16 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         const opacityRow = new Adw.SpinRow({
             title: _('Opacity'),
             subtitle: _('Widget transparency (0 = invisible, 1 = opaque)'),
-            digits: 2,
+            digits: OPACITY_CONFIG.decimalPlaces,
             adjustment: new Gtk.Adjustment({
-                lower: 0.1,
-                upper: 1.0,
-                step_increment: 0.05,
-                page_increment: 0.1,
-                value: settings.get_double('widget-opacity'),
+                lower: OPACITY_CONFIG.minimum,
+                upper: OPACITY_CONFIG.maximum,
+                step_increment: OPACITY_CONFIG.step,
+                page_increment: OPACITY_CONFIG.pageStep,
+                value: settings.get_double(EFFECT_KEYS.opacity),
             }),
         });
-        settings.bind('widget-opacity', opacityRow, 'value', 0);
+        settings.bind(EFFECT_KEYS.opacity, opacityRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         posGroup.add(opacityRow);
 
         const effectsPage = new Adw.PreferencesPage({
@@ -322,14 +334,14 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
             title: _('Blur effect'),
             subtitle: _('Apply a frosted glass blur behind the widgets'),
         });
-        settings.bind('blur-enabled', blurRow, 'active', 0);
+        settings.bind(EFFECT_KEYS.blurEnabled, blurRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         effectsGroup.add(blurRow);
 
         const reflectionRow = new Adw.SwitchRow({
             title: _('Glass reflection'),
             subtitle: _('Add a subtle sheen across the top of each widget'),
         });
-        settings.bind('reflection-enabled', reflectionRow, 'active', 0);
+        settings.bind(EFFECT_KEYS.reflectionEnabled, reflectionRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         effectsGroup.add(reflectionRow);
 
         const reflectionStyleRow = new Adw.ComboRow({
@@ -337,12 +349,14 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
             subtitle: _('Choose the kind of glass reflection to apply'),
             model: (() => {
                 const model = new Gtk.StringList();
-                model.append(_('Sheen'));
-                model.append(_('Mirror'));
+                appendEnumChoices(model, new Map([
+                    [REFLECTION_STYLE.SHEEN, _('Sheen')],
+                    [REFLECTION_STYLE.MIRROR, _('Mirror')],
+                ]));
                 return model;
             })(),
         });
-        settings.bind('reflection-style', reflectionStyleRow, 'selected', 0);
+        settings.bind(EFFECT_KEYS.reflectionStyle, reflectionStyleRow, 'selected', Gio.SettingsBindFlags.DEFAULT);
         effectsGroup.add(reflectionStyleRow);
 
         const sponsorPage = new Adw.PreferencesPage({
@@ -356,11 +370,11 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
 
         const sponsorContent = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
-            spacing: 16,
-            margin_top: 12,
-            margin_bottom: 12,
-            margin_start: 12,
-            margin_end: 12,
+            spacing: SPONSOR_LAYOUT.spacing,
+            margin_top: SPONSOR_LAYOUT.margin,
+            margin_bottom: SPONSOR_LAYOUT.margin,
+            margin_start: SPONSOR_LAYOUT.margin,
+            margin_end: SPONSOR_LAYOUT.margin,
         });
         const sponsorMessage = new Gtk.Label({
             label: _('Glass-widgets is free, if you\'d like to support it, a coffee goes toward keeping it working through GNOME Shell updates.'),
@@ -370,7 +384,7 @@ export default class GlassWidgetsPreferences extends ExtensionPreferences {
         sponsorContent.append(sponsorMessage);
 
         const qrCode = Gtk.Picture.new_for_filename(`${this.path}/screenshots/sponsor/qr-code.png`);
-        qrCode.set_size_request(240, 240);
+        qrCode.set_size_request(SPONSOR_LAYOUT.qrSize, SPONSOR_LAYOUT.qrSize);
         qrCode.set_can_shrink(true);
         qrCode.set_halign(Gtk.Align.CENTER);
         qrCode.set_valign(Gtk.Align.CENTER);

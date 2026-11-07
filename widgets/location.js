@@ -1,16 +1,18 @@
+import {APP_ID} from './metadata.js';
 'use strict';
 
 import GObject from 'gi://GObject';
 import Geoclue from 'gi://Geoclue';
 import GWeather from 'gi://GWeather';
+import {WEATHER_KEYS, WIDGET_SIGNALS} from './settings.js';
 
-const AUTO_LOCATION_KEY = 'weather-auto-location';
-const LAT_KEY = 'weather-lat';
-const LON_KEY = 'weather-lon';
-const APP_ID = 'org.gnome.shell.extensions.glass-widgets';
+const AUTO_LOCATION_KEY = WEATHER_KEYS.autoLocation;
+const LAT_KEY = WEATHER_KEYS.latitude;
+const LON_KEY = WEATHER_KEYS.longitude;
+
 
 export const GlassLocation = GObject.registerClass({
-    Signals: {'location-changed': {param_types: [GObject.TYPE_OBJECT]}},
+    Signals: {[WIDGET_SIGNALS.locationChanged]: {param_types: [GObject.TYPE_OBJECT]}},
 }, class GlassLocation extends GObject.Object {
     _init(settings) {
         super._init();
@@ -114,7 +116,7 @@ export const GlassLocation = GObject.registerClass({
             return;
 
         this._location = location;
-        this.emit('location-changed', location);
+        this.emit(WIDGET_SIGNALS.locationChanged, location);
     }
 
     destroy() {

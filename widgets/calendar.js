@@ -6,6 +6,7 @@ import St from 'gi://St';
 import GLib from 'gi://GLib';
 
 import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+import {CLOCK_KEYS} from './settings.js';
 
 export const GlassCalendarWidget = GObject.registerClass(
 class GlassCalendarWidget extends St.BoxLayout {
@@ -20,7 +21,7 @@ class GlassCalendarWidget extends St.BoxLayout {
         this._settingsChangedIds = [];
         if (this._settings) {
             this._settingsChangedIds.push(this._settings.connect(
-                'changed::clock-format-24h', () => this._render()));
+                `changed::${CLOCK_KEYS.format24h}`, () => this._render()));
         }
 
         this._render();

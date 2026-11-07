@@ -7,6 +7,7 @@ import GLib from 'gi://GLib';
 
 import {GlassWeather} from './weather.js';
 import {applyDynamicStyle} from './style.js';
+import {CLOCK_KEYS, CLOCK_REFRESH_INTERVAL_SECONDS, CLOCK_STYLE, WIDGET_KEYS, WIDGET_SIGNALS} from './settings.js';
 
 export const GlassClockWidget = GObject.registerClass(
 class GlassClockWidget extends St.BoxLayout {
@@ -18,11 +19,11 @@ class GlassClockWidget extends St.BoxLayout {
 
         this._settings = settings;
         this._settingsChangedIds = [];
-        this._settingsChangedIds.push(this._settings.connect('changed::clock-style-override-enabled', () => this._updateTime()));
-        this._settingsChangedIds.push(this._settings.connect('changed::clock-format-24h', () => this._updateTime()));
-        this._settingsChangedIds.push(this._settings.connect('changed::clock-font-weight', () => this._applyStyle()));
-        this._settingsChangedIds.push(this._settings.connect('changed::clock-hour-minute-size-ratio', () => this._updateTime()));
-        this._settingsChangedIds.push(this._settings.connect('changed::clock-color', () => this._applyStyle()));
+        this._settingsChangedIds.push(this._settings.connect(`changed::${CLOCK_KEYS.styleOverride}`, () => this._updateTime()));
+        this._settingsChangedIds.push(this._settings.connect(`changed::${CLOCK_KEYS.format24h}`, () => this._updateTime()));
+        this._settingsChangedIds.push(this._settings.connect(`changed::${CLOCK_KEYS.fontWeight}`, () => this._applyStyle()));
+        this._settingsChangedIds.push(this._settings.connect(`changed::${CLOCK_KEYS.hourMinuteSizeRatio}`, () => this._updateTime()));
+        this._settingsChangedIds.push(this._settings.connect(`changed::${CLOCK_KEYS.color}`, () => this._applyStyle()));
         this._weather = null;
 
         this._leftBox = new St.BoxLayout({
@@ -44,7 +45,7 @@ class GlassClockWidget extends St.BoxLayout {
         });
         this._leftBox.add_child(this._dateLabel);
 
-        if (settings && settings.get_boolean('show-weather'))
+        if (settings && settings.get_boolean(WIDGET_KEYS.clockWeather))
             this._buildWeather(locationHelper);
 
         this._timeout = null;
@@ -88,7 +89,7 @@ class GlassClockWidget extends St.BoxLayout {
         this._weatherBox.hide();
 
         this._weather = new GlassWeather(this._settings, locationHelper);
-        this._weatherId = this._weather.connect('weather-updated',
+        this._weatherId = this._weather.connect(WIDGET_SIGNALS.weatherUpdated,
             () => this._updateWeather());
     }
 
@@ -110,18 +111,18 @@ class GlassClockWidget extends St.BoxLayout {
 
     _updateTime() {
         const now = GLib.DateTime.new_now_local();
-        const format24h = this._settings.get_boolean('clock-format-24h');
-        const ratio = Math.max(0.5, Math.min(1.5,
-            this._settings.get_double('clock-hour-minute-size-ratio')));
+        const format24h = this._settings.get_boolean(CLOCK_KEYS.format24h);
+        const ratio = Math.max(CLOCK_STYLE.minimumHourRatio, Math.min(CLOCK_STYLE.maximumHourRatio,
+            this._settings.get_double(CLOCK_KEYS.hourMinuteSizeRatio)));
 
         const hour = format24h ? now.format('%H') : now.format('%I');
         const minute = now.format('%M');
         const suffix = format24h ? '' : now.format(' %p');
 
-        if (this._settings.get_boolean('clock-style-override-enabled') &&
-            Math.abs(ratio - 1.0) > 0.01) {
-            const sizeHour = Math.round(40 * ratio);
-            const sizeMinute = 40;
+        if (this._settings.get_boolean(CLOCK_KEYS.styleOverride) &&
+            Math.abs(ratio - CLOCK_STYLE.equalHourRatio) > CLOCK_STYLE.ratioTolerance) {
+            const sizeHour = Math.round(CLOCK_STYLE.baseFontSizePt * ratio);
+            const sizeMinute = CLOCK_STYLE.baseFontSizePt;
             const clutterText = this._timeLabel.clutterText;
             clutterText.use_markup = true;
             clutterText.set_markup(
@@ -138,19 +139,19 @@ class GlassClockWidget extends St.BoxLayout {
     }
 
     _applyStyle() {
-        if (!this._settings.get_boolean('clock-style-override-enabled')) {
+        if (!this._settings.get_boolean(CLOCK_KEYS.styleOverride)) {
             this._timeLabel.set_style('');
             return;
         }
-        const color = this._settings.get_string('clock-color') || '#ffffff';
-        const weight = this._settings.get_int('clock-font-weight');
+        const color = this._settings.get_string(CLOCK_KEYS.color) || CLOCK_STYLE.defaultColor;
+        const weight = this._settings.get_int(CLOCK_KEYS.fontWeight);
         applyDynamicStyle(this._timeLabel,
             `font-weight: ${weight}; color: ${color};`);
     }
 
     _startTimer() {
         this._timeout = GLib.timeout_add_seconds(
-            GLib.PRIORITY_DEFAULT, 1, () => {
+            GLib.PRIORITY_DEFAULT, CLOCK_REFRESH_INTERVAL_SECONDS, () => {
                 this._updateTime();
                 return GLib.SOURCE_CONTINUE;
             });

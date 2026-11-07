@@ -1,16 +1,18 @@
+import {FORECAST_CONFIG} from './forecast-config.js';
 'use strict';
 
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup';
+import {FAHRENHEIT_CONVERSION, TEMPERATURE_UNIT, WEATHER_CONFIG, WEATHER_KEYS, WIDGET_SIGNALS} from './settings.js';
 
-const TEMP_UNIT_KEY = 'weather-temperature-unit';
-const UPDATE_INTERVAL_SECONDS = 30 * 60;
-const FORECAST_HOURS = 6;
-const FORECAST_DAYS = 7;
+const TEMP_UNIT_KEY = WEATHER_KEYS.temperatureUnit;
+const UPDATE_INTERVAL_SECONDS = WEATHER_CONFIG.updateIntervalMinutes * GLib.TIME_SPAN_MINUTE / GLib.TIME_SPAN_SECOND;
+
+const FORECAST_DAYS = FORECAST_CONFIG.dailyDays;
 
 export const GlassForecast = GObject.registerClass({
-    Signals: {'forecast-updated': {}},
+    Signals: {[WIDGET_SIGNALS.forecastUpdated]: {}},
 }, class GlassForecast extends GObject.Object {
     _init(settings, locationHelper) {
         super._init();
@@ -18,7 +20,7 @@ export const GlassForecast = GObject.registerClass({
         this._settings = settings;
         this._locationHelper = locationHelper;
         this._locationChangedId = locationHelper.connect(
-            'location-changed', (_, location) => this._setLocation(location));
+            WIDGET_SIGNALS.locationChanged, (_, location) => this._setLocation(location));
         this._temperatureChangedId = settings.connect(
             `changed::${TEMP_UNIT_KEY}`, () => this._formatData());
         this._session = Soup.Session.new();
@@ -54,7 +56,7 @@ export const GlassForecast = GObject.registerClass({
         this._hourly = [];
         this._daily = [];
         this._lastFetch = 0;
-        this.emit('forecast-updated');
+        this.emit(WIDGET_SIGNALS.forecastUpdated);
         this._fetch(true);
     }
 
@@ -85,7 +87,7 @@ export const GlassForecast = GObject.registerClass({
             return;
 
             const now = GLib.get_monotonic_time();
-        if (!force && now - this._lastFetch < UPDATE_INTERVAL_SECONDS * 1000000)
+        if (!force && now - this._lastFetch < UPDATE_INTERVAL_SECONDS * GLib.TIME_SPAN_SECOND)
             return;
 
         this._lastFetch = now;
@@ -115,7 +117,7 @@ export const GlassForecast = GObject.registerClass({
                     console.error(`glass-widgets: forecast request failed: ${error}`);
                     this._hourly = [];
                     this._daily = [];
-                    this.emit('forecast-updated');
+                    this.emit(WIDGET_SIGNALS.forecastUpdated);
                 }
             });
     }
@@ -131,18 +133,18 @@ export const GlassForecast = GObject.registerClass({
         if (start < 0)
             start = 0;
 
-        this._hourly = hourly.time.slice(start, start + FORECAST_HOURS).map((time, index) => ({
+        this._hourly = hourly.time.slice(start, start + FORECAST_CONFIG.hourlyHours).map((time, index) => ({
             time: time.slice(11, 16),
             temperature: this._formatTemperature(hourly.temperature_2m[start + index]),
             icon: weatherCodeIcon(hourly.weather_code[start + index]),
         }));
-        this._daily = daily.time.slice(0, FORECAST_DAYS).map((date, index) => ({
+        this._daily = daily.time.slice(0, FORECAST_CONFIG.dailyDays).map((date, index) => ({
             date: date.slice(5),
             min: this._formatTemperature(daily.temperature_2m_min[index]),
             max: this._formatTemperature(daily.temperature_2m_max[index]),
             icon: weatherCodeIcon(daily.weather_code[index]),
         }));
-        this.emit('forecast-updated');
+        this.emit(WIDGET_SIGNALS.forecastUpdated);
     }
 
     _formatData() {
@@ -154,8 +156,9 @@ export const GlassForecast = GObject.registerClass({
     _formatTemperature(celsius) {
         if (celsius === null || celsius === undefined)
             return '--';
-        if (this._settings.get_int(TEMP_UNIT_KEY) === 1)
-            return `${Math.round(celsius * 9 / 5 + 32)}°`;
+        if (this._settings.get_int(TEMP_UNIT_KEY) === TEMPERATURE_UNIT.FAHRENHEIT)
+            return `${Math.round(celsius * FAHRENHEIT_CONVERSION.numerator /
+                FAHRENHEIT_CONVERSION.denominator + FAHRENHEIT_CONVERSION.offset)}°`;
         return `${Math.round(celsius)}°`;
     }
 

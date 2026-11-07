@@ -3,16 +3,18 @@
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import GWeather from 'gi://GWeather';
+import {APP_ID, PROJECT_URL} from './metadata.js';
 import {GlassLocation} from './location.js';
+import {FAHRENHEIT_CONVERSION, TEMPERATURE_UNIT, WEATHER_CONFIG, WEATHER_KEYS, WIDGET_SIGNALS} from './settings.js';
 
-const TEMP_UNIT_KEY = 'weather-temperature-unit';
-const TEMP_UNIT_CELSIUS = 0;
-const TEMP_UNIT_FAHRENHEIT = 1;
-const UPDATE_INTERVAL_SECONDS = 30 * 60;
-const APP_ID = 'org.gnome.shell.extensions.glass-widgets';
+const TEMP_UNIT_KEY = WEATHER_KEYS.temperatureUnit;
+const TEMP_UNIT_CELSIUS = TEMPERATURE_UNIT.CELSIUS;
+const TEMP_UNIT_FAHRENHEIT = TEMPERATURE_UNIT.FAHRENHEIT;
+const UPDATE_INTERVAL_SECONDS = WEATHER_CONFIG.updateIntervalMinutes * GLib.TIME_SPAN_MINUTE / GLib.TIME_SPAN_SECOND;
+
 
 export const GlassWeather = GObject.registerClass({
-    Signals: {'weather-updated': {}},
+    Signals: {[WIDGET_SIGNALS.weatherUpdated]: {}},
 }, class GlassWeather extends GObject.Object {
     _init(settings, locationHelper = null) {
         super._init();
@@ -26,7 +28,7 @@ export const GlassWeather = GObject.registerClass({
 
         this._info = new GWeather.Info({
             application_id: APP_ID,
-            contact_info: 'https://github.com/peter-njoro/glass-widgets',
+            contact_info: PROJECT_URL,
             enabled_providers: GWeather.Provider.METAR |
                 GWeather.Provider.MET_NO |
                 GWeather.Provider.OWM,
@@ -39,7 +41,7 @@ export const GlassWeather = GObject.registerClass({
         this._locationHelper = locationHelper ?? new GlassLocation(settings);
         this._ownsLocationHelper = locationHelper === null;
         this._locationChangedId = this._locationHelper.connect(
-            'location-changed', (_, loc) => this._setLocation(loc));
+            WIDGET_SIGNALS.locationChanged, (_, loc) => this._setLocation(loc));
         if (this._locationHelper.location)
             this._setLocation(this._locationHelper.location);
 
@@ -71,7 +73,7 @@ export const GlassWeather = GObject.registerClass({
         this._location = location;
         if (!location) {
             this._clearWeather();
-            this.emit('weather-updated');
+            this.emit(WIDGET_SIGNALS.weatherUpdated);
             return;
         }
 
@@ -90,13 +92,13 @@ export const GlassWeather = GObject.registerClass({
         } else {
             this._clearWeather();
         }
-        this.emit('weather-updated');
+        this.emit(WIDGET_SIGNALS.weatherUpdated);
     }
 
     _onTempUnitChanged() {
         if (this._info && this._info.is_valid()) {
             this._temperature = this._formatTemperature();
-            this.emit('weather-updated');
+            this.emit(WIDGET_SIGNALS.weatherUpdated);
         }
     }
 
@@ -113,7 +115,8 @@ export const GlassWeather = GObject.registerClass({
             const [ok, valC] = this._info.get_value_temp(GWeather.TemperatureUnit.CENTIGRADE);
             if (ok) {
                 if (targetUnit === TEMP_UNIT_FAHRENHEIT) {
-                    const valF = (valC * 9) / 5 + 32;
+                    const valF = valC * FAHRENHEIT_CONVERSION.numerator / FAHRENHEIT_CONVERSION.denominator +
+                        FAHRENHEIT_CONVERSION.offset;
                     return `${Math.round(valF)}°F`;
                 }
                 return `${Math.round(valC)}°C`;
@@ -125,21 +128,23 @@ export const GlassWeather = GObject.registerClass({
         if (!tempStr)
             return null;
 
-        const match = String(tempStr).match(/(-?\d+(?:[.,]\d+)?)/);
+        const match = String(tempStr).match(/(?<temperature>-?\d+(?:[.,]\d+)?)/);
         if (!match)
             return null;
 
-        const num = parseFloat(match[1].replace(',', '.'));
+        const num = parseFloat(match.groups.temperature.replace(',', '.'));
         const isSourceFahrenheit = /°F|℉|[\s°]F\b/i.test(tempStr);
 
         let tempC;
         if (isSourceFahrenheit)
-            tempC = (num - 32) * 5 / 9;
+            tempC = (num - FAHRENHEIT_CONVERSION.offset) *
+                FAHRENHEIT_CONVERSION.denominator / FAHRENHEIT_CONVERSION.numerator;
         else
             tempC = num;
 
         if (targetUnit === TEMP_UNIT_FAHRENHEIT) {
-            const valF = isSourceFahrenheit ? num : (tempC * 9) / 5 + 32;
+            const valF = isSourceFahrenheit ? num : tempC * FAHRENHEIT_CONVERSION.numerator /
+                FAHRENHEIT_CONVERSION.denominator + FAHRENHEIT_CONVERSION.offset;
             return `${Math.round(valF)}°F`;
         }
 

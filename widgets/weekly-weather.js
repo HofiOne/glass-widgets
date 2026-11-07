@@ -1,3 +1,4 @@
+import {FORECAST_CONFIG} from './forecast-config.js';
 'use strict';
 
 import GObject from 'gi://GObject';
@@ -5,6 +6,7 @@ import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
 import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+import {WIDGET_SIGNALS} from './settings.js';
 
 export const GlassWeeklyWeather = GObject.registerClass(
 class GlassWeeklyWeather extends St.BoxLayout {
@@ -12,12 +14,12 @@ class GlassWeeklyWeather extends St.BoxLayout {
         super._init({
             style_class: 'glass-card glass-forecast-card glass-weekly-card',
             vertical: true,
-            width: 392,
-            height: 140,
+            width: FORECAST_CONFIG.cardWidthPx,
+            height: FORECAST_CONFIG.cardHeightPx,
         });
         this._forecast = forecast;
         this._forecastId = forecast.connect(
-            'forecast-updated', () => this._render());
+            WIDGET_SIGNALS.forecastUpdated, () => this._render());
         this._render();
     }
 
@@ -52,7 +54,7 @@ class GlassWeeklyWeather extends St.BoxLayout {
             column.add_child(new St.Icon({
                 style_class: 'glass-forecast-icon',
                 icon_name: item.icon,
-                icon_size: 24,
+                icon_size: FORECAST_CONFIG.weatherIconSizePx,
             }));
             column.add_child(new St.Label({
                 style_class: 'glass-forecast-temperature',

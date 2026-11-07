@@ -6,6 +6,7 @@ import St from 'gi://St';
 import GLib from 'gi://GLib';
 
 import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+import {CLOCK_REFRESH_INTERVAL_SECONDS, WORLD_CLOCK_KEYS} from './settings.js';
 
 const HAND_COLORS = {
     hour: 'rgba(255,255,255,0.9)',
@@ -28,12 +29,12 @@ class GlassWorldClockWidget extends St.BoxLayout {
 
         if (this._settings) {
             this._settingsChangedId = this._settings.connect(
-                'changed::world-clock-entries', () => this._render());
+                `changed::${WORLD_CLOCK_KEYS.entries}`, () => this._render());
         }
 
         this._render();
         this._timeout = GLib.timeout_add_seconds(
-            GLib.PRIORITY_DEFAULT, 1, () => {
+            GLib.PRIORITY_DEFAULT, CLOCK_REFRESH_INTERVAL_SECONDS, () => {
                 this._render();
                 return GLib.SOURCE_CONTINUE;
             });
@@ -44,7 +45,7 @@ class GlassWorldClockWidget extends St.BoxLayout {
             return [];
 
         const entries = [];
-        for (const raw of this._settings.get_strv('world-clock-entries')) {
+        for (const raw of this._settings.get_strv(WORLD_CLOCK_KEYS.entries)) {
             try {
                 const parsed = JSON.parse(raw);
                 if (!parsed || typeof parsed.tz !== 'string')

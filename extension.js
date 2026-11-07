@@ -21,30 +21,31 @@ import {GlassLocation} from './widgets/location.js';
 import {GlassForecast} from './widgets/forecast.js';
 import {GlassHourlyWeather} from './widgets/hourly-weather.js';
 import {GlassWeeklyWeather} from './widgets/weekly-weather.js';
+import {BLUR_CONFIG, COLOR_FORMAT, EFFECT_KEYS, EFFECT_NAMES, LEGACY_POSITION_KEYS, REFLECTION_STYLE, WIDGET_KEYS} from './widgets/settings.js';
 // Media player widget is intentionally deferred and kept out of the current
 // stable build. It will ship later once the D-Bus sandboxing issues are sorted
 // out, so it is not loaded here.
 // import {GlassMediaPlayer} from './widgets/media-player.js';
 
-const OPACITY_KEY = 'widget-opacity';
-const BLUR_KEY = 'blur-enabled';
-const REFLECTION_ENABLED_KEY = 'reflection-enabled';
-const REFLECTION_STYLE_KEY = 'reflection-style';
-const SHOW_CLOCK_KEY = 'show-clock';
-const SHOW_STATS_KEY = 'show-stats';
-const SHOW_WEATHER_KEY = 'show-weather';
-const SHOW_HOURLY_KEY = 'show-hourly-weather';
-const SHOW_WEEKLY_KEY = 'show-weekly-weather';
-const SHOW_CALENDAR_KEY = 'show-calendar';
-const SHOW_WORLD_CLOCK_KEY = 'show-world-clock';
+const OPACITY_KEY = EFFECT_KEYS.opacity;
+const BLUR_KEY = EFFECT_KEYS.blurEnabled;
+const REFLECTION_ENABLED_KEY = EFFECT_KEYS.reflectionEnabled;
+const REFLECTION_STYLE_KEY = EFFECT_KEYS.reflectionStyle;
+const SHOW_CLOCK_KEY = WIDGET_KEYS.clock;
+const SHOW_STATS_KEY = WIDGET_KEYS.stats;
+const SHOW_WEATHER_KEY = WIDGET_KEYS.clockWeather;
+const SHOW_HOURLY_KEY = WIDGET_KEYS.hourly;
+const SHOW_WEEKLY_KEY = WIDGET_KEYS.weekly;
+const SHOW_CALENDAR_KEY = WIDGET_KEYS.calendar;
+const SHOW_WORLD_CLOCK_KEY = WIDGET_KEYS.worldclock;
 // const SHOW_MEDIA_PLAYER_KEY = 'show-media-player';
 const POSITION_KEYS = {
-    clock: ['clock-x', 'clock-y'],
-    stats: ['stats-x', 'stats-y'],
-    calendar: ['calendar-x', 'calendar-y'],
-    worldclock: ['world-clock-x', 'world-clock-y'],
-    hourly: ['hourly-x', 'hourly-y'],
-    weekly: ['weekly-x', 'weekly-y'],
+    clock: [LEGACY_POSITION_KEYS.clock.x, LEGACY_POSITION_KEYS.clock.y],
+    stats: [LEGACY_POSITION_KEYS.stats.x, LEGACY_POSITION_KEYS.stats.y],
+    calendar: [LEGACY_POSITION_KEYS.calendar.x, LEGACY_POSITION_KEYS.calendar.y],
+    worldclock: [LEGACY_POSITION_KEYS.worldclock.x, LEGACY_POSITION_KEYS.worldclock.y],
+    hourly: [LEGACY_POSITION_KEYS.hourly.x, LEGACY_POSITION_KEYS.hourly.y],
+    weekly: [LEGACY_POSITION_KEYS.weekly.x, LEGACY_POSITION_KEYS.weekly.y],
     // media: ['media-x', 'media-y'],
 };
 
@@ -254,31 +255,31 @@ export default class GlassWidgetsExtension extends Extension {
             return;
 
         const opacity = this._settings.get_double(OPACITY_KEY);
-        this._widgetContainer.opacity = Math.round(opacity * 255);
+        this._widgetContainer.opacity = Math.round(opacity * COLOR_FORMAT.channelMaximum);
     }
 
-    _updateBlur() {
+    _updateBlur(widgets = this._widgets) {
         if (!this._widgetContainer)
             return;
 
         const blurEnabled = this._settings.get_boolean(BLUR_KEY);
 
-        for (const w of this._widgets) {
+        for (const w of widgets) {
             if (blurEnabled)
-                w.add_style_class_name('blur-my-shell');
+                w.add_style_class_name(EFFECT_NAMES.blurClass);
             else
-                w.remove_style_class_name('blur-my-shell');
+                w.remove_style_class_name(EFFECT_NAMES.blurClass);
 
             if (w.setBlurActive)
                 w.setBlurActive(blurEnabled);
         }
 
-        for (const widget of this._widgets) {
-            const effect = widget.get_effect('blur');
+        for (const widget of widgets) {
+            const effect = widget.get_effect(EFFECT_NAMES.blur);
             if (blurEnabled && !effect) {
-                widget.add_effect_with_name('blur', new Shell.BlurEffect({
-                    brightness: 0.6,
-                    radius: 30,
+                widget.add_effect_with_name(EFFECT_NAMES.blur, new Shell.BlurEffect({
+                    brightness: BLUR_CONFIG.brightness,
+                    radius: BLUR_CONFIG.radius,
                     mode: Shell.BlurMode.BACKGROUND,
                 }));
             } else if (!blurEnabled && effect) {
@@ -287,21 +288,21 @@ export default class GlassWidgetsExtension extends Extension {
         }
     }
 
-    _updateReflection() {
+    _updateReflection(widgets = this._widgets) {
         if (!this._widgetContainer)
             return;
 
         const enabled = this._settings.get_boolean(REFLECTION_ENABLED_KEY);
         const style = this._settings.get_int(REFLECTION_STYLE_KEY);
 
-        for (const w of this._widgets) {
-            w.remove_style_class_name('glass-reflection-enabled');
-            w.remove_style_class_name('glass-reflection-style-1');
+        for (const w of widgets) {
+            w.remove_style_class_name(EFFECT_NAMES.reflectionClass);
+            w.remove_style_class_name(EFFECT_NAMES.mirrorClass);
 
             if (enabled) {
-                w.add_style_class_name('glass-reflection-enabled');
-                if (style === 1)
-                    w.add_style_class_name('glass-reflection-style-1');
+                w.add_style_class_name(EFFECT_NAMES.reflectionClass);
+                if (style === REFLECTION_STYLE.MIRROR)
+                    w.add_style_class_name(EFFECT_NAMES.mirrorClass);
             }
         }
     }
